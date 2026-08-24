@@ -15,3 +15,4 @@ Route::post('logout', [LoginController::class, 'destroy'])
     ->name('logout');
 
 require __DIR__.'/saas.php';
+require __DIR__.'/tenant.php';
