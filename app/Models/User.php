@@ -90,6 +90,14 @@ class User extends Authenticatable
         return in_array($this->role, [self::ROLE_COMPANY_ADMIN, self::ROLE_COMPANY_MANAGER, self::ROLE_COMPANY_APPROVER]);
     }
 
+    public function dashboardRoute(): string
+    {
+        return match ($this->role) {
+            self::ROLE_SAAS_ADMIN => 'saas.companies.index',
+            default => 'calendar.index',
+        };
+    }
+
     /**
      * Users who should receive approval workflow notifications for a company.
      *
