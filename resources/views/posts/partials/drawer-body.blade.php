@@ -143,9 +143,14 @@
     @endif
 
     @unless($user->isClient())
-        <a href="{{ route(($user->isManager() || $user->isCompanyAdmin()) ? 'posts.edit' : 'posts.index') }}"
-           class="btn btn-outline-dark w-100">
-            <i class="bi bi-pencil"></i> Open workspace
-        </a>
+        @if($user->isManager() || $user->isCompanyAdmin())
+            <a href="{{ route('posts.edit', $post) }}" class="btn btn-outline-dark w-100">
+                <i class="bi bi-pencil"></i> Edit post
+            </a>
+        @else
+            <a href="{{ route('posts.index') }}" class="btn btn-outline-dark w-100">
+                <i class="bi bi-grid"></i> Open workspace
+            </a>
+        @endif
     @endunless
 </div>
