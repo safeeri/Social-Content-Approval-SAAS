@@ -1,59 +1,90 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Socvial — Social Content Approval SaaS
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A multi-tenant Laravel platform where agencies draft social media posts, route them through
+internal QA, and let clients approve or reject them on a shared content calendar.
 
-## About Laravel
+**Stack:** Laravel 12 · MySQL · Pure Blade + Bootstrap 5 + vanilla JS (Select2, Cleave.js, FullCalendar)
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Multi-tenancy** — every record is scoped through `companies` (agency tenants). Clients are
+  external customers attached to a tenant; all queries are strictly role-scoped.
+- **RBAC** — `saas_admin`, `company_admin`, `company_manager`, `company_approver`, `client`
+  enforced by the `role:` middleware (`app/Http/Middleware/EnsureRole.php`).
+- **Approval workflow**
 
-## Learning Laravel
+  ```
+  draft ──submit──▶ internal_review ──sign off──▶ pending_approval ──client approves──▶ approved
+     ▲                                        │                    │
+     └────────── back to draft ◀── internal reject                 ▼ client rejects (comment required)
+                                                               rejected → returns to agency queue
+  ```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+- **Email notifications** — client notified on `pending_approval`; managers notified on
+  `approved` / `rejected` (`app/Mail/PostStatusChanged.php`, log driver by default).
+- **Calendar UI** — FullCalendar with a status filter bar (Draft / Internal Review /
+  Pending Approval / Approved / Rejected), month grid on desktop and agenda list on mobile.
+- **Right-side drawer** — click any event to preview media, caption and take action;
+  "Expand" opens a full-screen modal for hi-res video playback and long captions.
+- **Media** — direct file uploads or Google Drive links. The storage disk used for each file
+  is recorded in the `media.disk` column (`local`, `s3`, or `r2`).
+- **Timezones** — everything is stored in UTC; dates render in each user's timezone in Blade
+  views and FullCalendar events (`app/Support/TimeZone.php`).
+- **Soft deletes** on `companies`, `clients`, `users`, `posts`.
+- **Form Requests** for every submission; controllers never validate inline.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Requirements
 
-## Laravel Sponsors
+- PHP ≥ 8.2, Composer
+- MySQL
+- XAMPP works fine out of the box
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Setup
 
-### Premium Partners
+```bash
+composer install
+cp .env.example .env            # then set DB_DATABASE etc.
+php artisan key:generate
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+# create the database
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS socvial CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 
-## Contributing
+php artisan migrate --seed      # demo data included
+php artisan serve               # http://127.0.0.1:8000
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+For cloud storage set `FILESYSTEM_DISK=s3` or `FILESYSTEM_DISK=r2` plus the matching
+credentials in `.env` (`R2_*` keys for Cloudflare R2) and run:
 
-## Code of Conduct
+```bash
+composer require league/flysystem-aws-s3-v3
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Demo logins (password: `password`)
 
-## Security Vulnerabilities
+| Role             | Email                  | Sees                          |
+|------------------|------------------------|-------------------------------|
+| SaaS Admin       | `admin@socvial.com`    | Companies & platforms admin   |
+| Company Admin    | `admin@acme.com`       | Clients & team management     |
+| Company Manager  | `manager@acme.com`     | Calendar, drafts, submissions |
+| Company Approver | `approver@acme.com`    | Internal review queue         |
+| Client           | `client@bellavista.com`| Own calendar only, approve/reject |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Project layout
 
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+app/
+├── Http/
+│   ├── Controllers/{Saas,Company}/   # per-role controllers
+│   ├── Middleware/EnsureRole.php     # RBAC + tenant guard
+│   └── Requests/                     # strict validation layer
+├── Mail/PostStatusChanged.php        # approval-loop emails
+├── Models/                           # Company, Client, User, Post, Media, ...
+└── Support/TimeZone.php              # UTC ⇄ user-timezone helpers
+resources/views/
+├── calendar/index.blade.php          # FullCalendar + filter pills
+├── posts/partials/drawer-body.blade.php  # drawer preview + actions
+└── layouts/app.blade.php             # black sidebar / yellow accents shell
+```
